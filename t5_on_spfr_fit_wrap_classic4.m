@@ -93,21 +93,15 @@ if width == 1 && stim_dur==40
     continue
 end
 counter = counter+1;
-%[x_fit.mov{counter,1,1,1},x_fit.mov{counter,1,2,1},x_fit.mov{counter,1,3,1},x_fit.mov{counter,1,4,1},...
-%                          x_fit.mov{counter,1,2,2},x_fit.mov{counter,1,3,2},x_fit.mov{counter,1,4,2}] = t5_off_model(param,pd_ds);
 x_fit.mov{counter,1} = t5_off_model(param,pd_ds);
-%[x_fit.mov{counter,2,1,1},x_fit.mov{counter,2,2,1},x_fit.mov{counter,2,3,1},x_fit.mov{counter,2,4,1},...
-%                          x_fit.mov{counter,2,2,2},x_fit.mov{counter,2,3,2},x_fit.mov{counter,2,4,2}] = t5_off_model(param,nd_ds);
 x_fit.mov{counter,2} = t5_off_model(param,nd_ds);
-%[x_fit.spfr{counter,1,1},x_fit.spfr{counter,2,1},x_fit.spfr{counter,3,1},x_fit.spfr{counter,4,1},...
-%                           x_fit.spfr{counter,2,2},x_fit.spfr{counter,3,2},x_fit.spfr{counter,4,2}] = t5_off_model(param,spfr_ds);
 x_fit.spfr{counter} = t5_off_model(param,spfr_ds);
 end
 end
 
 %store in appropriate folder
 tic
-foldername = [basedir,'/xfits_T5/off_classic4/',...
+foldername = [basedir,'/xfits_T5/on_classic4/',...
     sprintf('cell%d',cell_num)];
 
 if ~exist(foldername, 'dir')
@@ -119,7 +113,7 @@ fprintf('Save time:%d\n',fix(toc))
 end
 end
 
-function [V,he,fe,ge,hi,fi,gi] = t5_off_model(params,spfr_data)
+function [V] = t5_off_model(params,spfr_data)
 
 params = params.*[10,10,1,1,1,10,10,1,1,1];
 
