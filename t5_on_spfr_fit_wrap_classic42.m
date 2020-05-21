@@ -1,7 +1,6 @@
-function t5_on_spfr_fit_wrap_classic4(task_id)
+function t5_on_spfr_fit_wrap_classic42(task_id)
 
-for cell_num = [21,22]
-    cell_num2 = cell_num-2;
+for cell_num = [19,20]
     counter = 0;
 for width = [1,2,4]
 for stim_dur = [40,160] %[40,160]
@@ -32,14 +31,14 @@ end
 %set parameter bounds, and initialize randomly (reproducibly) within
 tic
 
-%     Tre     Tde      Ae  mue     sige       Tri      Tdi     Ai    mui     sigi
-lb = [.1       .1,    0,   -5,    0.1,       .1       .1,      0,    -5,    0.1];
-ub = [70,      70,    10,   7,     10,       70,      70,     20,     7,      12];
+%     Tre     Tde      Ae  mue     sige       Tri      Tdi     Ai    mui     sigi     Tre2     Tde2      Ae2  mue2     sige2 
+lb = [.1,      .1,    0,   -1,    0.1,       .1       .1,      0,    -5,    0.1,    .1       .1,    0,   -5,    0.1];
+ub = [70,      70,    10,   7,     10,       70,      70,     20,     7,      12,   70,      70,    10,   0,     10,];
 
 
 res_spfr = inf;
 breakout_flag = -1;
-while res_spfr > 2 || breakout_flag > 10
+while res_spfr > 3 || breakout_flag > 10
     breakout_flag = breakout_flag + 1;
 rng(task_id + breakout_flag*1000)
 xo = unifrnd(lb,ub);
@@ -83,9 +82,9 @@ try
 %load data to fit to
 basedir = pwd;
    
-load(sprintf('T5_spfr_structs/pd_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'pd_ds')
-load(sprintf('T5_spfr_structs/nd_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'nd_ds')
-load(sprintf('T5_spfr_structs/spfr_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'spfr_ds')
+load(sprintf('T5_spfr_structs/pd_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'pd_ds')
+load(sprintf('T5_spfr_structs/nd_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'nd_ds')
+load(sprintf('T5_spfr_structs/spfr_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'spfr_ds')
 catch
     continue
 end
@@ -102,7 +101,7 @@ end
 
 %store in appropriate folder
 tic
-foldername = [basedir,'/xfits_T5/on_classic4/',...
+foldername = [basedir,'/xfits_T5/on_classic42/',...
     sprintf('cell%d',cell_num)];
 
 if ~exist(foldername, 'dir')
@@ -116,7 +115,7 @@ end
 
 function [V] = t5_off_model(params,spfr_data)
 
-params = params.*[10,10,1,1,1,10,10,1,1,1];
+params = params.*[10,10,1,1,1,10,10,1,1,1,10,10,1,1,1,];
 
 p.Vr = 0;
 p.Ve = 65;
@@ -175,14 +174,23 @@ p.Tri = params(6);
 p.Tdi = params(7);   
 Ai = params(8); 
 mui = params(9);   
-sigi = params(10);  
+sigi = params(10); 
+
+%excitatory2
+p.Tre2 = params(11);
+p.Tde2 = params(12);
+Ae2 = params(13);
+mue2 = params(14);
+sige2 = params(15);
+
 
 % Model
 p.ae = Ae.*exp(-(x-mue).^2 / (2*sige^2) );
 p.ai = Ai.*exp(-(x-mui).^2 / (2*sigi^2) );
+p.ae2 = Ae2.*exp(-(x-mue2).^2 / (2*sige2^2) );
 
 p.stim_time = stim_time;
-y0 = zeros((4*size(Ie,2)),1);
+y0 = zeros((6*size(Ie,2)),1);
 t_ind = find([spfr_data.stimIdx;1]);
 [~,s_ind] = min(abs(spfr_data.time - (spfr_data.time(spfr_data.stimIdx) + p.stimDur)'));
 s_ind = s_ind';
@@ -206,21 +214,27 @@ if spfr_data.cat_flag
     fe = zeros(size(p.Ie,2),size(spfr_data.time,1));
     hi = zeros(size(p.Ii,2),size(spfr_data.time,1));
     fi = zeros(size(p.Ii,2),size(spfr_data.time,1));
+    he2 = zeros(size(p.Ie,2),size(spfr_data.time,1));
+    fe2 = zeros(size(p.Ie,2),size(spfr_data.time,1));
     
-    he_tmp = ode_res(1:4:length(y0),:);
-    fe_tmp = ode_res(2:4:length(y0),:);
-    hi_tmp = ode_res(3:4:length(y0),:);
-    fi_tmp = ode_res(4:4:length(y0),:);
+    he_tmp = ode_res(1:6:length(y0),:);
+    fe_tmp = ode_res(2:6:length(y0),:);
+    hi_tmp = ode_res(3:6:length(y0),:);
+    fi_tmp = ode_res(4:6:length(y0),:);
+    he_tmp2 = ode_res(5:6:length(y0),:);
+    fe_tmp2 = ode_res(6:6:length(y0),:);
     
     for i = 1:size(Ie,1)
         he(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(he_tmp,2)-1)) = he_tmp(logical(p.Ie(1,:)),:);
         fe(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(fe_tmp,2)-1)) = fe_tmp(logical(p.Ie(1,:)),:);
         hi(logical(p.Ii(i,:)),t_ind(i):(t_ind(i)+size(hi_tmp,2)-1)) = hi_tmp(logical(p.Ii(1,:)),:);
         fi(logical(p.Ii(i,:)),t_ind(i):(t_ind(i)+size(fi_tmp,2)-1)) = fi_tmp(logical(p.Ii(1,:)),:);
+        he2(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(he_tmp,2)-1)) = he_tmp2(logical(p.Ie(1,:)),:);
+        fe2(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(fe_tmp,2)-1)) = fe_tmp2(logical(p.Ie(1,:)),:);      
     end
     
     %caluclate conductances and steady state voltage
-    ge  = p.ae*fe;
+    ge  = p.ae*fe + p.ae2*fe2;
     gi  = p.ai*fi;
     V = ((p.Vr + ge*p.Ve + gi*p.Vi)./(1+ge+gi))';
     V = V(1:size(spfr_data.time,1));
@@ -229,10 +243,11 @@ else
     sol = ode45(@(t,y) vm_wrap_mov(t,y,p),[min(spfr_data.time) max(spfr_data.time)],y0);
     tspan = spfr_data.time;
     tmp = deval(sol,tspan); % V is now a 
-    fe = tmp(2:4:length(y0),:);
-    fi = tmp(4:4:length(y0),:);
+    fe = tmp(2:6:length(y0),:);
+    fi = tmp(4:6:length(y0),:);
+    fe2 = tmp(6:6:length(y0),:);
     
-    ge  = sum(fe'.*p.ae,2);
+    ge  = sum(fe'.*p.ae,2) + sum(fe2'.*p.ae2,2);
     gi  = sum(fi'.*p.ai,2); 
     
     V = (p.Vr + ge*p.Ve + gi*p.Vi)./(1+ge+gi);
@@ -269,18 +284,22 @@ end
 
 
 function dydt = vm_solve(y,p)
-he = y(1:4:end);
-fe = y(2:4:end);
-hi = y(3:4:end);
-fi = y(4:4:end);
+he = y(1:6:end);
+fe = y(2:6:end);
+hi = y(3:6:end);
+fi = y(4:6:end);
+he2 = y(5:6:end);
+fe2 = y(6:6:end);
 
 dhe = (-he' + p.stim*p.Ie(p.stim_num,:)) / p.Tre;
 dfe = (-fe' + he')     / p.Tde;
 dhi = (-hi' + p.stim*p.Ii(p.stim_num,:)) / p.Tri;
 dfi = (-fi' + hi')     / p.Tdi;
+dhe2 = (-he2' + p.stim*p.Ie(p.stim_num,:)) / p.Tre2;
+dfe2 = (-fe2' + he2')     / p.Tde2;
 
 
-tmp = [dhe;dfe;dhi;dfi];
+tmp = [dhe;dfe;dhi;dfi;dhe2;dfe2];
 dydt = reshape(tmp,[],1);
 
 end

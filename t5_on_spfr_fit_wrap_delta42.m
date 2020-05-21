@@ -1,7 +1,6 @@
-function t5_on_spfr_fit_wrap_classic4(task_id)
+function t5_on_spfr_fit_wrap_delta42(task_id)
 
-for cell_num = [21,22]
-    cell_num2 = cell_num-2;
+for cell_num = [19,20]
     counter = 0;
 for width = [1,2,4]
 for stim_dur = [40,160] %[40,160]
@@ -32,9 +31,9 @@ end
 %set parameter bounds, and initialize randomly (reproducibly) within
 tic
 
-%     Tre     Tde      Ae  mue     sige       Tri      Tdi     Ai    mui     sigi
-lb = [.1       .1,    0,   -5,    0.1,       .1       .1,      0,    -5,    0.1];
-ub = [70,      70,    10,   7,     10,       70,      70,     20,     7,      12];
+%     Tre     Tde       mue     sige       Tri      Tdi     Ai    mui     sigi    m
+lb = [.1       .1,     -5,    0.1,       .1       .1,      0,    -5,    0.1,   0,       .1,       .1,      0,    -5,    0.1];
+ub = [70,      70,     7,     10,       70,      70,     5,     7,      12,  10,      70,      70,        10,     0,     12];
 
 
 res_spfr = inf;
@@ -43,13 +42,12 @@ while res_spfr > 2 || breakout_flag > 10
     breakout_flag = breakout_flag + 1;
 rng(task_id + breakout_flag*1000)
 xo = unifrnd(lb,ub);
-xo(9:10) = unifrnd([-2,0.1],[1,4]);
+xo(8:9) = unifrnd([-3,0.1],[2,4]);
 
 %set objective function (least squares residual, normalized by position and weighted so that hyperpol and depol get equal weighting) and timelimit for solver
 time_lim = 60*60;
 obj_fun = @(param)  (sum( spfr_struct.spfr_ds_width4_stimDur160.weight_cost.*(spfr_struct.spfr_ds_width4_stimDur160.baseSub - t5_off_model(param,spfr_struct.spfr_ds_width4_stimDur160)).^2 )/length(spfr_struct.spfr_ds_width4_stimDur160)+...
                      sum( spfr_struct.spfr_ds_width4_stimDur40.weight_cost.*(spfr_struct.spfr_ds_width4_stimDur40.baseSub - t5_off_model(param,spfr_struct.spfr_ds_width4_stimDur40)).^2 )/length(spfr_struct.spfr_ds_width4_stimDur40));
-
 out_fun = @(x, optimvalues, state) (isequal(state, 'interrupt') & toc > time_lim);
 %c = @(x)(sum(x(5:6)) - sum(x(1:2))); %nonlinear inequality. taue > taui written in less than 0 form taui - taue < 0.
 %ceq = @(x)([]);
@@ -83,14 +81,10 @@ try
 %load data to fit to
 basedir = pwd;
    
-load(sprintf('T5_spfr_structs/pd_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'pd_ds')
-load(sprintf('T5_spfr_structs/nd_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'nd_ds')
-load(sprintf('T5_spfr_structs/spfr_ds_cell%d_dur%d_width%d_val1.mat',cell_num2,stim_dur,width),'spfr_ds')
+load(sprintf('T5_spfr_structs/pd_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'pd_ds')
+load(sprintf('T5_spfr_structs/nd_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'nd_ds')
+load(sprintf('T5_spfr_structs/spfr_ds_cell%d_dur%d_width%d_val1.mat',cell_num,stim_dur,width),'spfr_ds')
 catch
-    continue
-end
-
-if width == 1 && stim_dur==40
     continue
 end
 counter = counter+1;
@@ -102,7 +96,7 @@ end
 
 %store in appropriate folder
 tic
-foldername = [basedir,'/xfits_T5/on_classic4/',...
+foldername = [basedir,'/xfits_T5/delta42/',...
     sprintf('cell%d',cell_num)];
 
 if ~exist(foldername, 'dir')
@@ -115,8 +109,8 @@ end
 end
 
 function [V] = t5_off_model(params,spfr_data)
-
-params = params.*[10,10,1,1,1,10,10,1,1,1];
+%               t,  tre,tde,ae,me,sie,tri,tdi,ai,mi,sigi,a2,m
+params = params.*[10, 10, 1, 1, 10, 10, 1, 1, 1, .1, 10, 10, 1, 1, 1,];
 
 p.Vr = 0;
 p.Ve = 65;
@@ -130,7 +124,6 @@ pos_vect = spfr_data.pos_vect;
 stim_time = fix(spfr_data.time(spfr_data.stimIdx));
 
 M = 1:(length(spfr_data.pos_vect));
-%x = sort(spfr_data.pos_vect,'ascend');
 x = min(pos_vect):max(pos_vect);
 
 %if moving bar, we need to tag stims to end of pos_vect
@@ -166,36 +159,55 @@ p.Ii = Ii;
 %excitatory
 p.Tre = params(1);
 p.Tde = params(2);
-Ae = params(3);
-mue = params(4);
-sige = params(5);
+mue = params(3);
+sige = params(4);
 
 %inhibitory
-p.Tri = params(6); 
-p.Tdi = params(7);   
-Ai = params(8); 
-mui = params(9);   
-sigi = params(10);  
+p.Tri = params(5); 
+p.Tdi = params(6);   
+Ai = params(7); 
+mui = params(8);   
+sigi = params(9);  
 
-% Model
-p.ae = Ae.*exp(-(x-mue).^2 / (2*sige^2) );
+%excitatory 2
+p.Tre2 = params(11); 
+p.Tde2 = params(12);   
+Ae2 = params(13); 
+mue2 = params(14);   
+sige2 = params(15); 
+
+%time
+p.b = spfr_data.stimDur*params(10); % b = m*effDur
+
+if ~spfr_data.cat_flag
+    p.b = p.b*spfr_data.width; %if moving, then also account for width 
+end
+
+
+p.a2 = -1; % fix a2
+        
+% Mode
+p.ae = exp(-(x-mue).^2 / (2*sige^2) );
 p.ai = Ai.*exp(-(x-mui).^2 / (2*sigi^2) );
+p.ae2 = Ae2.*exp(-(x-mue2).^2 / (2*sige2^2) );
 
 p.stim_time = stim_time;
-y0 = zeros((4*size(Ie,2)),1);
+y0 = zeros((6*size(Ie,2)),1);
 t_ind = find([spfr_data.stimIdx;1]);
 [~,s_ind] = min(abs(spfr_data.time - (spfr_data.time(spfr_data.stimIdx) + p.stimDur)'));
 s_ind = s_ind';
 
 p.stim_time = stim_time;
-
 if spfr_data.cat_flag
+    %solve the diffeq once
+    %solver for during flash
     p.stim_num = 1;
     sol = ode45(@(t,y) vm_wrap_sb(t,y,p),[spfr_data.time(1) spfr_data.time(s_ind(1))+10],y0);
-    tspan = spfr_data.time(t_ind(1):s_ind(1)); 
+    tspan = spfr_data.time(t_ind(1):s_ind(1)); % solve during bar flash
     tmp{1} = deval(sol,tspan);
     %solve after the flash
     y1 = tmp{1}(:,end); %set initial conditions for second half
+    y1(1:6:length(y0),end) = p.b/p.Tre; % set delta function, which jumps to amplitude instantly
     sol = ode45(@(t,y) vm_wrap_sb(t,y,p),[spfr_data.time(s_ind(1)) spfr_data.time(t_ind(2))+10],y1);
     tspan = spfr_data.time((s_ind(1)+1):(t_ind(2)-1)); % solve after flash
     tmp{2} = deval(sol,tspan);
@@ -206,81 +218,105 @@ if spfr_data.cat_flag
     fe = zeros(size(p.Ie,2),size(spfr_data.time,1));
     hi = zeros(size(p.Ii,2),size(spfr_data.time,1));
     fi = zeros(size(p.Ii,2),size(spfr_data.time,1));
+    he2 = zeros(size(p.Ie,2),size(spfr_data.time,1));
+    fe2 = zeros(size(p.Ie,2),size(spfr_data.time,1));
     
-    he_tmp = ode_res(1:4:length(y0),:);
-    fe_tmp = ode_res(2:4:length(y0),:);
-    hi_tmp = ode_res(3:4:length(y0),:);
-    fi_tmp = ode_res(4:4:length(y0),:);
+    he_tmp = ode_res(1:6:length(y0),:);
+    fe_tmp = ode_res(2:6:length(y0),:);
+    hi_tmp = ode_res(3:6:length(y0),:);
+    fi_tmp = ode_res(4:6:length(y0),:);
+    he_tmp2 = ode_res(5:6:length(y0),:);
+    fe_tmp2 = ode_res(6:6:length(y0),:);
     
     for i = 1:size(Ie,1)
         he(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(he_tmp,2)-1)) = he_tmp(logical(p.Ie(1,:)),:);
         fe(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(fe_tmp,2)-1)) = fe_tmp(logical(p.Ie(1,:)),:);
         hi(logical(p.Ii(i,:)),t_ind(i):(t_ind(i)+size(hi_tmp,2)-1)) = hi_tmp(logical(p.Ii(1,:)),:);
         fi(logical(p.Ii(i,:)),t_ind(i):(t_ind(i)+size(fi_tmp,2)-1)) = fi_tmp(logical(p.Ii(1,:)),:);
+        he2(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(he_tmp,2)-1)) = he_tmp2(logical(p.Ie(1,:)),:);
+        fe2(logical(p.Ie(i,:)),t_ind(i):(t_ind(i)+size(fe_tmp,2)-1)) = fe_tmp2(logical(p.Ie(1,:)),:);
+            
     end
-    
-    %caluclate conductances and steady state voltage
-    ge  = p.ae*fe;
+        %caluclate conductances and steady state voltage
+    ge  = p.ae*fe + p.ae2*fe2;
     gi  = p.ai*fi;
     V = ((p.Vr + ge*p.Ve + gi*p.Vi)./(1+ge+gi))';
     V = V(1:size(spfr_data.time,1));
-    
+
 else
-    sol = ode45(@(t,y) vm_wrap_mov(t,y,p),[min(spfr_data.time) max(spfr_data.time)],y0);
-    tspan = spfr_data.time;
-    tmp = deval(sol,tspan); % V is now a 
-    fe = tmp(2:4:length(y0),:);
-    fi = tmp(4:4:length(y0),:);
-    
-    ge  = sum(fe'.*p.ae,2);
+    p.Ie = [p.Ie;zeros(1,size(p.Ie,2))];
+    t_ind(end) = t_ind(end)-1;
+    for i = 1:length(t_ind)-1
+        sol = ode45(@(t,y) vm_wrap_mov(t,y,p),[spfr_data.time(t_ind(i)) spfr_data.time(t_ind(i+1))+10],y0);
+        tspan = spfr_data.time(t_ind(i):t_ind(i+1)-1); % solve during bar flash
+        tmp{i} = deval(sol,tspan); %solve each bit and store laterally
+        gate = (p.Ie(i,:) - p.Ie(i+1,:)) > 0;
+        y0 = tmp{i}(:,end); %next bit picks up where this left off
+        y0(1:6:length(y0),end) = (p.b/p.Tre).*gate' + tmp{i}(1:6:length(y0),end).*~gate'; % set delta function, which jumps to amplitude instantly only at section that relaxes at t_ind
+    end
+
+    ode_res = [tmp{:}];
+    ode_res = [ode_res,ode_res(:,end)];         %THIS IS BECAUSE WE SHAVED OFF LAST TIME POINT IN FOR LOOP STITCHING, FIND BETTER WAY TO DO THIS
+    he = ode_res(1:6:length(y0),:);
+    fe = ode_res(2:6:length(y0),:);
+    hi = ode_res(3:6:length(y0),:);
+    fi = ode_res(4:6:length(y0),:);
+    he2 = ode_res(5:6:length(y0),:);
+    fe2 = ode_res(6:6:length(y0),:);
+
+    ge  = sum(fe'.*p.ae,2) + sum(fe2'.*p.ae2,2);
     gi  = sum(fi'.*p.ai,2); 
     
     V = (p.Vr + ge*p.Ve + gi*p.Vi)./(1+ge+gi);
-    he = tmp(1:4:length(y0),:);
-    hi = tmp(3:4:length(y0),:);
-    
+        
+       
 end
 
 end
 
 %ODE45
-function dydt = vm_wrap_sb(t,y,p)
-    p.stim = 0;
-    if t < p.stim_time(p.stim_num) + p.stimDur
-        p.stim = 1;
-    end
-
-    dydt = vm_solve(y,p);
-end
-
 function dydt = vm_wrap_mov(t,y,p)
-    p.stim = 0;
-    p.stim_num = 1;
+    p.stimi = 0;
+    p.stim_numi = 1;
     id1 = t > p.stim_time ;
     id2 = t < p.stim_time + p.stimDur;
-
     tmp = find(id1.*id2);
     if any(tmp)
-        p.stim = 1;
-        p.stim_num = tmp(1);
+        p.stimi = 1;
+        p.stim_numi = tmp(1);
     end
+
     dydt = vm_solve(y,p);
 end
 
+function dydt = vm_wrap_sb(t,y,p)
+    p.stimi = 0;
+    p.stim_numi = p.stim_num;
+    if t < p.stim_time(p.stim_num) + p.stimDur
+        p.stimi = 1;
+    end
+
+    dydt = vm_solve(y,p);
+end
 
 function dydt = vm_solve(y,p)
-he = y(1:4:end);
-fe = y(2:4:end);
-hi = y(3:4:end);
-fi = y(4:4:end);
 
-dhe = (-he' + p.stim*p.Ie(p.stim_num,:)) / p.Tre;
-dfe = (-fe' + he')     / p.Tde;
-dhi = (-hi' + p.stim*p.Ii(p.stim_num,:)) / p.Tri;
-dfi = (-fi' + hi')     / p.Tdi;
+he = y(1:6:end);
+fe = y(2:6:end);
+hi = y(3:6:end);
+fi = y(4:6:end);
+he2 = y(5:6:end);
+fe2 = y(6:6:end);
 
 
-tmp = [dhe;dfe;dhi;dfi];
+dhe = (-he')   ./ p.Tre;
+dfe = (-fe' + he')                           ./ p.Tde;
+dhi = (-hi' + p.stimi*p.Ii(p.stim_numi,:))   ./ p.Tri;
+dfi = (-fi' + hi')                           ./ p.Tdi;
+dhe2 = (-he2' + p.stimi*p.Ii(p.stim_numi,:))   ./ p.Tre2;
+dfe2 = (-fe2' + he2')                           ./ p.Tde2;
+
+tmp = [dhe;dfe;dhi;dfi;dhe2;dfe2];
 dydt = reshape(tmp,[],1);
 
 end
